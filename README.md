@@ -38,7 +38,7 @@ npm run auth:qr
 
 **သတိထား:** `auth/login-qr.png` က log in code ပဲ — ဘယ်သူ့ကိုမှ မပြ၊ သုံးပြီးရင် ဖျက်ပစ်။ `auth/` တစ်ဖိုင်လုံး `.gitignore` မှာ ပါပြီးသား။
 
-မှတ်ချက် (2026-11-13 စစ်ထားတာ): `npm install` ရပြီး file တွေ syntax မှန်တယ်၊ session မရှိသေးရင် `npm start` က "No saved session found. Run first: npm run auth" လို့ မှန်မှန်ပြတယ်။ ဒါပေမယ့် Chromium browser download (`npx playwright install chromium`) က ဒီ Muse ကွန်ပျူတာမှာ အခု run လို့မရသေးဘူး — download ပိတ်ထားလို့။ ဒါကြောင့် QR login ကို အပြည့်အစုံ live စမ်းဖို့ `npx playwright install chromium` အရင် run ရမယ့် စက်မှာ လုပ်ရမယ်။
+မှတ်ချက် (2026-11-13 စစ်ထားတာ): `npm install` ရပြီး file တွေ syntax မှန်တယ်၊ session မရှိသေးရင် `npm start` က "No saved session found. Run first: npm run auth" လို့ မှန်မှန်ပြတယ်။ Chromium headless shell ကို curl နဲ့ သွင်းပြီး Playwright cache ထဲ ထည့်ထားပြီးပြီ — browser က launch လုပ်လို့ရတယ်။ ဒါပေမယ့် ဒီ Muse ကွန်ပျူတာက browser ရဲ့ internet က egress proxy ကို ဖြတ်မရဘူး (`ERR_TUNNEL_CONNECTION_FAILED`)၊ ဒါကြောင့် Telegram Web ကို ဒီကနေ ဖွင့်လို့မရသေးဘူး၊ QR login ကို အပြည့်အစုံ live စမ်းလို့မရဘူး။ QR login / `npm start` ကို internet တိုက်ရိုက်ရတဲ့ စက်မှာ run ရမယ် — ဥပမာ boxes.dev box ထဲမှာ GitHub repo ကနေ import လုပ်ပြီး။
 
 **သတိထား:** `auth/session.json` က password နဲ့ တူတယ် — ဘယ်သူ့ကိုမှ မပေး၊ GitHub မှာ မတင်။ `.gitignore` မှာ ပါပြီးသား။ Login ပျက်သွားရင် အဲ့ဖိုင်ကို ဖျက်ပြီး `npm run auth` ပြန်လုပ်။
 
