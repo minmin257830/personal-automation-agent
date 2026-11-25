@@ -1,0 +1,280 @@
+# boxes.dev agent-init manifest
+#
+# This file is the working plan for setting this project up on a
+# boxes.dev Template box. A coding agent fills it in with the user's
+# guidance; the user can read and edit it directly at any time.
+# `dvb agent-init check` validates it; `dvb agent-init run` executes
+# it. Secret VALUES never belong in this file - reference files and
+# variable names only.
+#
+# Sections marked TODO(agent) still need investigation. Replace the
+# marker comment with real findings (or an explicit empty list when
+# the project truly has none). `dvb agent-init guide <section>`
+# explains each section and how to investigate it.
+
+version: 3
+
+project:
+  root: "/home/hatch/workspace/personal-automation-agent"
+  # Choose repositories separately from ordinary files/folders alongside them.
+  repositories: ["."]
+  rootEntries: []
+  name: "personal-automation-agent" # Template box name; edit before launch if desired
+#
+# Instance type: kept at the team default 4vcpu8gb (4 vCPU, 8 GB RAM,
+# 100 GB disk). Fits one coding agent + headless Playwright Chromium +
+# occasional ffmpeg encoding. NEEDS the user's confirmation at review —
+# the choice applies to the Template box and all devboxes and cannot be
+# changed after initialization.
+  instanceType: "4vcpu8gb"
+
+# Which coding agents get configured on the Template box.
+agents:
+  runtime: [codex]
+  # Verified via `dvb threads options --json`: connected Codex account is
+# Hip's free ChatGPT account (minmin257830@gmail.com); GPT-6.1-Sol is the
+# default model (isDefault: true). No Codex provider connections exist.
+  setup: { backend: codex, model: gpt-6.1-sol }
+
+# PENDING USER DECISION (2026-11-25) — deliberately NOT included yet.
+# Two secret-bearing files exist locally and are needed for the Telethon
+# scripts to run, but copying them is security-sensitive and Hip's call:
+#   - telegram-api/.env (76 bytes, mode 600; variable names only:
+#     TELEGRAM_API_ID, TELEGRAM_API_HASH — values never in this file)
+#   - telegram-api/telegram_api.session (28 KB Telethon session,
+#     password-equivalent; needed by press_play5.py / qr_login.py /
+#     check_status.py / bot.py)
+# Both are Git-ignored, so the untracked defaults will NOT sweep them in.
+# If Hip approves, add:
+#   env:
+#     - path: telegram-api/.env
+#       note: Telegram app credentials (Play5 app, my.telegram.org)
+#       vars:
+#         - { name: TELEGRAM_API_ID, secret: true }
+#         - { name: TELEGRAM_API_HASH, secret: true }
+#   other:
+#     - path: telegram-api/telegram_api.session
+#       note: Logged-in Telethon session (user mibamyitta1); re-login via
+#         qr_login.py on the box is the alternative if not copied.
+# Also NOT present anywhere: BOT_TOKEN (no bot created yet — Hip must make
+# one via @BotFather himself if he wants telegram-bot/bot.py to run) and
+# auth/session.json (Playwright session; auth/ is empty — QR login must be
+# done on the Template box via `npm run auth:qr`).
+files:
+  env: []
+  other: []
+
+# Investigated 2026-11-25 from package.json, README.md, src/*.js,
+# telegram-api/*.py, telegram-bot/bot.py. No outside-project config files
+# are referenced by the project (no ~/.config usage; PLAYWRIGHT_CHROMIUM_PATH
+# is an optional env override, not a config file).
+external:
+  dependencies:
+    - name: Node.js
+      version: null # package.json has no engines field; verified working on local Node v24.22.1
+      evidence: package.json (type module, scripts); setup.js prints process.version
+    - name: Playwright + Chromium
+      version: "^1.49.0" # package.json dependency; setup.js runs `npx playwright install chromium`
+      evidence: package.json dependencies; setup.js
+    - name: Python 3
+      version: null # verified working on local Python 3.12.3; telegram-api scripts are Python
+      evidence: telegram-api/*.py; local venv python 3.12.3
+    - name: Telethon (Python)
+      version: "1.46.0" # as installed in local telegram-api/.venv
+      evidence: telegram-api/press_play5.py imports Telethon; venv pip list
+    - name: qrcode + Pillow (Python)
+      version: "8.2 / 13.0.0" # as installed in local telegram-api/.venv
+      evidence: telegram-api/qr_login.py; venv pip list
+    - name: python-socks (Python)
+      version: "3.2.2" # as installed in local telegram-api/.venv; Telethon proxy support
+      evidence: venv pip list; press_play5.py routes via https_proxy when set
+    - name: ffmpeg
+      version: null # user request 2026-11-25: use the box for video encoding
+      evidence: user request; not yet installed anywhere in this project
+    - name: Telegram MTProto API (via Telethon)
+      version: null
+      evidence: telegram-api/press_play5.py, qr_login.py, check_status.py, test_connect.py; telegram-bot/bot.py
+    - name: Telegram Web
+      version: null
+      evidence: src/telegram.js, src/auth.js, src/auth-qr.js use web.telegram.org
+    - name: TikTok Web
+      version: null
+      evidence: src/tiktok.js checks tiktok.com/inbox (starter only; TikTok blocks automation)
+  configs: []
+
+# Investigated 2026-11-25: nothing untracked-and-irreplaceable exists.
+# `dvb agent-init detect untracked` shows only 8 files / 19.9 KB total
+# (the .py scripts, bot README, and a stale 980 B QR image), all covered
+# by the untracked defaults below. No fixtures, seed data, asset packs,
+# downloaded models, or slow-to-recreate generated files. The stale
+# telegram-api/qr_login.png is regenerable and not worth a named entry.
+artifacts: []
+
+# Investigated 2026-11-25: no local dev database. No DATABASE_URL, PG* /
+# MYSQL_* vars, ORM config, or docker-compose database service anywhere in
+# the project (no compose file at all). Nothing to dump or restore.
+databases: []
+
+# Investigated 2026-11-25 from package.json scripts + README.md. This is a
+# set of one-shot CLI scripts, not a long-running app: there is no dev
+# server, no docker compose, and no background service, so services is [].
+app:
+  entrypoints:
+    - command: npm start
+      description: Headless one-shot check — loads auth/session.json, prints latest Telegram message (exits 1 with "No saved session found" until login is done)
+    - command: npm run auth:qr
+      description: Phone-only QR login for Telegram Web; saves auth/session.json (Hip scans the QR from his phone)
+    - command: npm run auth
+      description: Headed manual Telegram Web login; saves auth/session.json (needs a display — not usable headless)
+    - command: npm run setup
+      description: One-time setup check — verifies Node + Playwright and runs `npx playwright install chromium`
+    - command: telegram-api/.venv/bin/python telegram-api/press_play5.py
+      description: Daily Play 5 press in @imimimhdbhbot via Telethon (needs telegram-api/.env + telegram_api.session; watches until all 5 games finish)
+    - command: telegram-api/.venv/bin/python telegram-api/check_status.py
+      description: Read-only status check — prints latest bot messages (safe verification command; needs .env + session)
+    - command: telegram-api/.venv/bin/python telegram-bot/bot.py
+      description: Telegram bot starter (/start, /help, /ping, echo) — needs BOT_TOKEN (not created yet) + TELEGRAM_API_ID/HASH
+  services: []
+
+# Local work reviewed 2026-11-25 (guide: untracked). Starting branch:
+# master (local branch; repo has NO origin remote — see setupNotes).
+# Current checkout: master at 3b9b6fe, clean — `git diff` and `git diff
+# --cached` are empty, so there are NO dirty tracked files and copyDirty
+# is effectively a no-op. The "8 changed files" are the 8 untracked files
+# below, copied via untracked mode defaults (19.9 KB). No local-only
+# commits beyond master itself (only 2 commits exist, both local-only
+# because there is no remote). Nothing needs a separate stash.
+localChanges: # 8 changed file(s) detected
+  copyDirty: true
+
+# Additional untracked files to bundle. `mode: defaults` excludes
+# dependency/cache/build folders and Git worktrees inside the repo, and
+# includes the rest. Switch to `mode: custom`, `base: defaults`, and
+# `include`/`exclude` patterns to hand-pick.
+# `dvb agent-init detect untracked` prints the sized tree.
+# Default exclusions:
+#   - .claude/worktrees/
+#   - .codex/worktrees/
+untracked:
+  copy: true # independent of localChanges.copyDirty
+  mode: defaults
+
+# GitHub push/pull access for the Template box and future devboxes.
+# managed: use the connected GitHub account automatically
+# ssh: use Git SSH setup below
+# skip: no GitHub push/pull access
+# Use null only when this project has no standard github.com origins.
+githubAccess: null
+
+# No origin remote exists for this repo (`git remote -v` is empty), so
+# there is no push/pull to configure. mode: skip is intentional.
+gitSsh:
+  repos:
+    - path: "." # no origin remote
+      mode: skip
+      convertOriginToSsh: false
+
+# No local signing: `git config commit.gpgsign` and `user.signingkey`
+# are both unset, so the user does not sign commits locally. skip is the
+# right default; user can change it at review if they want signing.
+gitSigning:
+  mode: skip
+
+# Local Claude/Codex configuration to copy to the Template box (MCP servers,
+# skills, settings, memory). Detected items below; remove ids the user
+# does not want copied. `dvb agent-init detect agent-config` reprints.
+agentConfig:
+  include: []
+
+# Import local agent conversation history to the Template box.
+agentThreads:
+  import: none
+
+# Lifecycle commands run for every devbox created from this Template box.
+# The generated Git block declares each repository's default branch.
+# Keep its paths in sync with project.repositories. After that block, add
+# only quick per-devbox steps, such as a locked dependency install. Put
+# one-time setup in setupNotes instead. Use teardown only for cleanup
+# before removal.
+# No generated Git block: the remote default branch is unknown for the project folder (no origin).
+# The block needs one for every repository, so new devboxes will keep the
+# Template box's saved checkout. Tell the user when reviewing the manifest.
+devboxLifecycle:
+  startupTimeoutSeconds: 60
+  startupScript: ""
+  teardownTimeoutSeconds: 30
+  teardownScript: ""
+
+# Template box maintenance, recommended for most projects. It keeps the
+# Template box from going stale, so keep the script small: fast-forward
+# the selected branch and install locked dependencies without prompts.
+# Don't call a full first-time setup script from it. Design the script
+# and GitHub watch paths together: watch lockfiles and tooling files,
+# not application source. The script fails clearly on local changes or
+# another branch. Setup tests it twice, saves a fresh baseline, and
+# leaves the schedule off. See the manifest guide for requirements.
+# Set timeoutSeconds to an integer from 1 through 7200 (at most 2 hours).
+# Shape: { script, timeoutSeconds, watches: [{ repository, enabled, paths }] }
+templateMaintenance: null
+
+setupNotes: |
+  Starting branch: master (local branch; this repo has NO origin remote, so
+  Template setup runs on the local master checkout at 3b9b6fe and new
+  devboxes keep the Template box's saved checkout — no remote fetch is
+  possible. Tell Hip this at review: to get push/pull or maintenance
+  later, the repo needs a remote added first.)
+  Local work: no dirty tracked files; 8 untracked files (19.9 KB) are
+  copied via untracked mode defaults. No separate stash is needed.
+  Template box setup (run on the box, in project order):
+  1. Node.js: install Node 22+ (project has no engines field; verified
+     working on local Node v24.22.1). Run `npm ci` (package-lock.json is
+     present), then `npm run setup` (runs `npx playwright install
+     chromium`). Chromium must be installed — `npm start` and the QR
+     login need it.
+  2. Python 3.12: create telegram-api/.venv and install
+     `telethon==1.46.0 qrcode==8.2 pillow python-socks` (versions as
+     installed locally: Telethon 1.46.0, qrcode 8.2, Pillow 13.0.0,
+     python-socks 3.2.2). The local .venv is Git-ignored and NOT copied.
+  3. Install ffmpeg (user request 2026-11-25 — he wants to use this box
+     for video encoding, Pro hours are otherwise unused). E.g.
+     `sudo apt-get update && sudo apt-get install -y ffmpeg`, then
+     verify with `ffmpeg -version`. No ffmpeg use is scripted yet; it is
+     for Hip to run by hand or via a future agent thread.
+  4. Verification (safe, read-only where possible): `node --check` on
+     src/*.js; `npm start` is EXPECTED to exit 1 with "No saved session
+     found" until a Playwright login exists — that is not a setup failure.
+     For Telethon, `.venv/bin/python telegram-api/check_status.py` prints
+     the latest bot messages — but ONLY if telegram-api/.env +
+     telegram_api.session were approved for copying (see files section).
+     Do NOT run press_play5.py during setup verification — it would
+     actually press "Play 5" and start games.
+  Login notes (Hip is phone-only, no laptop):
+  - Playwright session auth/session.json does NOT exist locally. On the
+    Template box run `npm run auth:qr`; it saves the QR to
+    auth/login-qr.png — show it to Hip in chat so he can scan it from
+    his phone (Telegram > Settings > Devices > Link Device). Session is
+    then saved to auth/session.json. Delete the QR image after use.
+  - Telegram MTProto scripts need telegram-api/.env (TELEGRAM_API_ID,
+    TELEGRAM_API_HASH — names only) + telegram_api.session. If Hip does
+    NOT approve copying them, he can recreate .env on the box from his
+    my.telegram.org app ("Play5") and re-run
+    `.venv/bin/python telegram-api/qr_login.py` (QR scan from his phone).
+    Never put secret values in chat or in this manifest.
+  - telegram-bot/bot.py needs BOT_TOKEN, which does not exist yet — Hip
+    must create a bot via @BotFather himself if he wants it to run.
+    Without it the script exits 2 by design.
+  Networking note: on Muse's VM, direct MTProto was reset by the egress
+  layer, so the scripts read https_proxy/HTTPS_PROXY from the environment.
+  boxes.dev has direct internet — do NOT set a proxy on the Template box.
+  If Telegram is unreachable, check direct connectivity first
+  (telegram-api/test_connect.py).
+  Other notes: the README's Coarena section (ANTHROPIC_BASE_URL /
+  ANTHROPIC_AUTH_TOKEN) is for Claude Code and is NOT needed here — this
+  Template box runs Codex on Hip's connected free ChatGPT account
+  (minmin257830@gmail.com). TikTok (src/tiktok.js) is a starter only;
+  TikTok aggressively blocks automation — never work around a captcha or
+  login wall. Do NOT change tracked project files unless Hip explicitly
+  approves the exact edits during review.
+  Template maintenance: left null — there is no remote to fast-forward or
+  watch, so there is nothing for a maintenance script to track. Revisit
+  once the repo has a remote.

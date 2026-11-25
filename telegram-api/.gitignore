@@ -1,0 +1,5 @@
+telegram_api.session
+__pycache__/
+.venv/
+.env
+qr_login.png
